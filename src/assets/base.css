@@ -1,0 +1,241 @@
+/* ═══════════════════════════════════════════════════════
+   kby 设计令牌 + 全局基础样式
+   从产品设计原型(index.html)逐条移植;暗色主题只需在
+   [data-theme="dark"] 下覆写 :root 变量(第 6 步接入)
+   ═══════════════════════════════════════════════════════ */
+:root {
+  --bg: #ffffff;
+  --surface: #f0f4f9;      /* Gemini 侧栏 / 输入框底色 */
+  --surface-2: #e4e9f1;    /* hover */
+  --surface-3: #d3e3fd;    /* 选中态(Gemini 蓝) */
+  --text: #1f1f1f;
+  --text-2: #444746;
+  --muted: #7c7f82;
+  --blue: #1b6ef3;
+  --blue-deep: #0b57d0;
+  --ink-on-blue: #041e49;
+  --border: #dadce0;
+  --grad: linear-gradient(74deg, #1b6ef3 0%, #a142f4 52%, #f76c05 100%);
+  --sb-w: 292px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0 }
+html, body { height: 100% }
+body {
+  font-family: "Google Sans", "Segoe UI", system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  display: flex;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  transition: filter .4s;
+}
+/* AGI 模式:整界面置灰(由 AgiView 挂载时给 body 加类) */
+body.agi { filter: grayscale(1) }
+
+button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; text-align: left }
+svg { display: block }
+[hidden] { display: none !important }
+a { cursor: pointer }
+
+/* ── 通用原子 ── */
+.icon-btn {
+  width: 40px; height: 40px; border-radius: 50%;
+  display: grid; place-items: center; color: var(--text-2);
+}
+.icon-btn:hover { background: var(--surface) }
+
+.avatar {
+  width: 32px; height: 32px; border-radius: 50%; margin-left: 8px; flex-shrink: 0;
+  background: var(--grad); color: #fff; display: grid; place-items: center;
+  font-size: 14px; font-weight: 700; cursor: pointer;
+}
+.avatar.big { width: 48px; height: 48px; font-size: 18px; margin-left: 0 }
+
+.chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 12px; border-radius: 999px;
+  font-size: 13px; color: var(--text-2);
+}
+.chip:hover { background: #e0e8f1 }
+.chip.active { background: var(--surface-3); color: var(--blue-deep); font-weight: 600 }
+
+/* ── 主区域骨架(侧栏以外的全部) ── */
+.main {
+  flex: 1; display: flex; flex-direction: column;
+  height: 100vh; min-width: 0; position: relative;
+}
+
+.scroll-area {
+  flex: 1; overflow-y: auto; display: flex; flex-direction: column;
+  scroll-behavior: smooth;
+}
+.scroll-area::-webkit-scrollbar { width: 8px }
+.scroll-area::-webkit-scrollbar-thumb { background: #d7dce2; border-radius: 8px }
+.scroll-area::-webkit-scrollbar-thumb:hover { background: #bfc6cf }
+
+/* 移动端侧栏抽屉的遮罩(仅窄屏可见) */
+.backdrop {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, .42); z-index: 50;
+  opacity: 0; pointer-events: none; transition: opacity .2s;
+}
+@media (max-width: 900px) {
+  .backdrop.show { opacity: 1; pointer-events: auto }
+}
+
+/* ── 问候区文字(welcome / AGI / 占位页共用) ── */
+.greet { font-size: 42px; font-weight: 600; text-align: center; letter-spacing: .2px }
+.grad { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent }
+.sub { font-size: 17px; color: var(--text-2); text-align: center; margin-top: -12px }
+@media (max-width: 900px) {
+  .greet { font-size: 30px }
+  .sub { font-size: 15px }
+}
+
+/* ── Toast ── */
+.toast {
+  position: fixed; bottom: 30px; left: 50%; transform: translate(-50%, 16px);
+  opacity: 0; transition: opacity .22s, transform .22s; z-index: 99;
+  background: #202124; color: #fff; padding: 10px 18px; border-radius: 12px;
+  font-size: 13px; pointer-events: none; white-space: nowrap;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0) }
+
+/* ══════════════ 弹窗体系(登录/注册 + 之后的设置面板共用) ══════════════ */
+.st-backdrop {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, .45); z-index: 80;
+  opacity: 0; pointer-events: none; transition: opacity .2s;
+}
+.st-backdrop.show { opacity: 1; pointer-events: auto }
+
+.settings {
+  position: fixed; z-index: 90; top: 50%; left: 50%;
+  transform: translate(-50%, -46%) scale(.97);
+  opacity: 0; pointer-events: none; transition: transform .22s, opacity .22s;
+  width: min(560px, calc(100vw - 32px)); max-height: min(660px, calc(100vh - 48px));
+  display: flex; flex-direction: column;
+  background: #fff; border-radius: 28px;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, .30);
+}
+.settings.show { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%) scale(1) }
+
+.st-head { display: flex; justify-content: space-between; align-items: center; padding: 20px 20px 6px 24px }
+.st-head h2 { font-size: 20px; font-weight: 600 }
+.st-tabs { display: flex; gap: 26px; padding: 6px 24px 0; border-bottom: 1px solid #e8eaee }
+.st-tab {
+  padding: 12px 2px; font-size: 14px; color: var(--muted);
+  border-bottom: 2.5px solid transparent; margin-bottom: -1px;
+}
+.st-tab:hover { color: var(--text-2) }
+.st-tab.active { color: var(--blue-deep); font-weight: 600; border-color: var(--blue-deep) }
+.st-body { flex: 1; overflow-y: auto; padding: 14px 24px }
+.st-pane { display: flex; flex-direction: column; gap: 4px }
+
+.st-row {
+  display: flex; justify-content: space-between; align-items: center; gap: 16px;
+  width: 100%; padding: 13px 6px; border-radius: 14px;
+}
+.st-row:hover { background: var(--surface) }
+.st-row b { font-size: 14px; display: block }
+.st-row i { font-style: normal; font-size: 12px; color: var(--muted); display: block; margin-top: 3px }
+.st-value { font-size: 13px; color: var(--muted); flex-shrink: 0 }
+.st-danger b { color: #d93025 }
+.st-profile { display: flex; align-items: center; gap: 14px; padding: 12px 6px }
+.st-profile b { display: block; font-size: 15px }
+.st-profile i { font-style: normal; font-size: 12.5px; color: var(--muted) }
+.st-link {
+  margin-left: auto; font-size: 13px; font-weight: 600; color: var(--blue-deep);
+  padding: 8px 14px; border-radius: 999px; flex-shrink: 0;
+}
+.st-link:hover { background: var(--surface-3) }
+
+.st-field { padding: 6px; margin-bottom: 4px }
+.st-field > label { font-size: 12.5px; font-weight: 600; color: var(--text-2); display: block; margin-bottom: 7px }
+.st-field input {
+  width: 100%; padding: 11px 14px; border: 1px solid var(--border); border-radius: 12px;
+  font: inherit; font-size: 14px; color: var(--text); outline: none; background: #fff;
+}
+.st-field input:focus { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue) }
+.st-key { display: flex; gap: 6px }
+.st-key input { flex: 1; min-width: 0 }
+.st-key .icon-btn { width: 42px; height: 42px; flex-shrink: 0; border-radius: 12px; border: 1px solid var(--border) }
+.st-key .icon-btn:hover { background: var(--surface) }
+.st-label2 { font-size: 12px; font-weight: 600; color: var(--muted); padding: 12px 6px 4px }
+
+.st-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 10px 20px 20px 24px }
+.st-btn { padding: 10px 24px; border-radius: 999px; font-size: 14px; font-weight: 600 }
+.st-btn:hover { background: var(--surface) }
+.st-btn.primary { background: var(--blue); color: #fff }
+.st-btn.primary:hover { background: var(--blue-deep) }
+.st-btn:disabled { opacity: .6; cursor: default }
+
+/* 开关(模型接入等,第 5 步设置面板用) */
+.switch {
+  position: relative; width: 38px; height: 22px; border-radius: 999px; flex-shrink: 0;
+  background: #c9ced6; transition: background .15s;
+}
+.switch::after {
+  content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .3); transition: left .15s;
+}
+.switch.on { background: var(--blue-deep) }
+.switch.on::after { left: 19px }
+
+/* 账号弹窗(登录/注册) */
+.acc-dialog { max-width: 420px }
+.acc-primary {
+  width: 100%; margin-top: 12px; padding: 12px; border-radius: 999px;
+  background: var(--blue); color: #fff; font-size: 14.5px; font-weight: 600;
+  text-align: center;
+}
+.acc-primary:hover { background: var(--blue-deep) }
+.acc-primary:disabled { opacity: .6; cursor: default }
+.acc-switch { text-align: center; font-size: 12.5px; color: var(--muted); margin-top: 16px }
+.acc-switch a { color: var(--blue-deep); font-weight: 600 }
+.acc-switch a:hover { text-decoration: underline }
+
+/* ══════════════ 输入区(ChatView / AgiView 共用) ══════════════ */
+.composer-wrap { width: 100%; max-width: 840px; margin: 0 auto; padding: 0 20px 10px; flex-shrink: 0 }
+.mode-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 8px 7px 14px; border-radius: 999px;
+  background: #fff; border: 1px solid var(--border);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .08);
+  font-size: 13px; font-weight: 600; margin-bottom: 10px;
+}
+.mode-chip .dot { width: 10px; height: 10px; border-radius: 50% }
+.mode-chip button {
+  width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+  color: var(--muted);
+}
+.mode-chip button:hover { background: var(--surface) }
+
+.composer {
+  background: var(--surface); border-radius: 28px;
+  padding: 6px 10px 8px 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
+  transition: box-shadow .15s;
+}
+.composer:focus-within { box-shadow: 0 2px 10px rgba(11, 87, 208, .16) }
+.composer textarea {
+  width: 100%; border: none; background: transparent; resize: none; outline: none;
+  font: inherit; font-size: 16px; line-height: 1.5;
+  padding: 12px 8px 6px 14px; max-height: 180px; color: var(--text);
+}
+.composer textarea::placeholder { color: var(--muted) }
+.composer textarea:disabled { color: var(--muted) }
+.comp-row { display: flex; justify-content: space-between; align-items: center; padding: 2px 8px 0 6px }
+.comp-left, .comp-right { display: flex; align-items: center; gap: 2px }
+
+.send {
+  width: 42px; height: 42px; border-radius: 50%; margin-left: 4px;
+  background: var(--blue); color: #fff; display: grid; place-items: center;
+  transition: background .15s;
+}
+.send:disabled { background: #d9e2ec; color: #8a94a3; cursor: default }
+.send:not(:disabled):hover { background: var(--blue-deep) }
+
+.disclaimer {
+  text-align: center; font-size: 11.5px; color: var(--muted);
+  margin-top: 9px; padding-bottom: 4px;
+}

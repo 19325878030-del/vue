@@ -1,0 +1,11 @@
+node_modules/
+dist/
+
+# 本地环境变量(含后端地址等,不入库)
+.env.local
+.env.*.local
+
+# Claude Code 本地配置
+.claude/
+
+*.local
