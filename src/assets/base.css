@@ -30,6 +30,9 @@ body {
   -webkit-font-smoothing: antialiased;
   transition: filter .4s;
 }
+/* Vue 挂载根节点:接续 body 的 flex 链,让侧栏与主区左右排开、占满全屏 */
+#app { display: flex; height: 100%; width: 100% }
+
 /* AGI 模式:整界面置灰(由 AgiView 挂载时给 body 加类) */
 body.agi { filter: grayscale(1) }
 
