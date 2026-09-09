@@ -28,7 +28,8 @@ npm run dev        # http://localhost:5173
 - [x] **第 2 步** 登录/注册弹窗接真实 `/api/auth/*`(Cookie 会话、401 自动弹登录、刷新尽力恢复会话)
 - [ ] 第 3 步 对话主链路接 `/api/chat`(流式抽象、Markdown 渲染、会话列表)
 - [ ] 第 4 步 LibraryView 泛型组件(RAG/AGENT/Skill 三页配置化)
-- [ ] 第 5 步 设置面板(模型开关与顶栏下拉联动)、RAG 文件夹上传与向量化进度
+- [x] 第 5 步-a 设置面板(侧栏齿轮 → 账户设置/模型接入;模型开关与顶栏下拉实时联动,本地持久化,待接真实接口)
+- [ ] 第 5 步-b RAG 文件夹上传与向量化进度
 - [ ] 第 6 步 暗色主题、移动端打磨
 
 ## 目录结构
@@ -36,12 +37,13 @@ npm run dev        # http://localhost:5173
 ```
 src/
 ├─ api/          # 后端接口层:http.ts 为 fetch 封装(Cookie 会话 + 错误归一化 + 401 处理)
-├─ stores/       # Pinia:auth(登录态) / ui(侧栏、弹窗、Toast)
+├─ stores/       # Pinia:auth(登录态) / settings(模型开关+密钥,顶栏下拉数据源) / ui(侧栏、弹窗、Toast)
 ├─ router/       # /chat /rag /agent /skill /agi 五视图路由
 ├─ views/        # ChatView(欢迎页+输入区) / AgiView / PlaceholderView(第 4 步替换)
 ├─ components/
 │  ├─ layout/    # AppSidebar / AppTopbar / ModelSwitcher
 │  ├─ auth/      # AuthDialog(登录/注册弹窗)
+│  ├─ settings/  # SettingsDialog(账户设置/模型接入弹窗)
 │  └─ common/    # IconDefs+IconSvg(原型图标库) / AppToast
 └─ assets/       # base.css:设计令牌(:root 变量)+ 全局样式,预留暗色主题覆写
 ```

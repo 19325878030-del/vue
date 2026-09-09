@@ -5,6 +5,7 @@ import AppToast from '@/components/common/AppToast.vue'
 import AppSidebar from '@/components/layout/AppSidebar.vue'
 import AppTopbar from '@/components/layout/AppTopbar.vue'
 import AuthDialog from '@/components/auth/AuthDialog.vue'
+import SettingsDialog from '@/components/settings/SettingsDialog.vue'
 import { useUiStore } from '@/stores/ui'
 import { useAuthStore } from '@/stores/auth'
 
@@ -29,5 +30,6 @@ onMounted(() => {
   </main>
 
   <AuthDialog />
+  <SettingsDialog />
   <AppToast />
 </template>

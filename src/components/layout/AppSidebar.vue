@@ -62,7 +62,7 @@ const recentChats = [
 
     <div class="sb-foot">
       <div class="sb-foot-row">
-        <button class="icon-btn" title="设置(账户设置 / 模型接入)" aria-label="打开设置" @click="ui.toast('设置面板将在第 5 步接入')">
+        <button class="icon-btn" title="设置(账户设置 / 模型接入)" aria-label="打开设置" @click="ui.openSettings()">
           <IconSvg name="gear" :size="21" />
         </button>
         <button class="icon-btn" title="帮助" aria-label="帮助" @click="ui.toast('帮助中心未接入')">

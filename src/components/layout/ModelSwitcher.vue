@@ -1,17 +1,13 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useUiStore } from '@/stores/ui'
+import { useSettingsStore } from '@/stores/settings'
 import IconSvg from '@/components/common/IconSvg.vue'
 
 const ui = useUiStore()
+// 下拉只展示「设置 → 模型接入」里开启的模型,当前模型也是单一数据源
+const settings = useSettingsStore()
 
-// 静态选项:第 5 步接「设置 → 模型接入」开关联动(models store 单一数据源)
-const MODELS = [
-  { name: 'kby 2.5 Pro', desc: '最强推理 · 适合复杂任务' },
-  { name: 'kby 2.5 Flash', desc: '快速响应 · 日常首选' },
-  { name: 'kby 2.5 Flash-Lite', desc: '轻量高速 · 简单问题' },
-]
-const current = ref(MODELS[0].name)
 const open = ref(false)
 
 function onDocClick() {
@@ -21,7 +17,7 @@ onMounted(() => document.addEventListener('click', onDocClick))
 onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 
 function select(name: string) {
-  current.value = name
+  settings.selectModel(name)
   ui.toast(`已切换到 ${name}`)
 }
 </script>
@@ -29,15 +25,15 @@ function select(name: string) {
 <template>
   <div class="model-wrap">
     <button class="model-pill" :class="{ open }" @click.stop="open = !open">
-      <span>{{ current }}</span>
+      <span>{{ settings.current }}</span>
       <IconSvg class="chev" name="chev" :size="18" />
     </button>
     <div class="model-menu" :class="{ open }">
       <button
-        v-for="m in MODELS"
+        v-for="m in settings.available"
         :key="m.name"
         class="model-opt"
-        :class="{ current: m.name === current }"
+        :class="{ current: m.name === settings.current }"
         @click.stop="select(m.name); open = false"
       >
         <span><b>{{ m.name }}</b><i>{{ m.desc }}</i></span>

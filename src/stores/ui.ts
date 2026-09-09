@@ -1,10 +1,12 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 
+
 /** 界面全局状态:侧栏开合 / 账号弹窗 / Toast */
 export const useUiStore = defineStore('ui', () => {
   const sidebarOpen = ref(true)
   const authDialogOpen = ref(false)
+  const settingsOpen = ref(false)
   const toastMsg = ref('')
   let toastTimer: number | undefined
 
@@ -21,11 +23,29 @@ export const useUiStore = defineStore('ui', () => {
   function closeAuth() {
     authDialogOpen.value = false
   }
+  function openSettings() {
+    settingsOpen.value = true
+  }
+  function closeSettings() {
+    settingsOpen.value = false
+  }
   function toast(msg: string) {
     toastMsg.value = msg
     clearTimeout(toastTimer)
     toastTimer = window.setTimeout(() => (toastMsg.value = ''), 1800)
   }
 
-  return { sidebarOpen, authDialogOpen, toastMsg, init, toggleSidebar, openAuth, closeAuth, toast }
+  return {
+    sidebarOpen,
+    authDialogOpen,
+    settingsOpen,
+    toastMsg,
+    init,
+    toggleSidebar,
+    openAuth,
+    closeAuth,
+    openSettings,
+    closeSettings,
+    toast,
+  }
 })

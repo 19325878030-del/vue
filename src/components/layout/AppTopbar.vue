@@ -16,7 +16,7 @@ const auth = useAuthStore()
         <IconSvg name="workbench" :size="26" />
       </button>
       <span class="top-sep"></span>
-      <!-- 模型切换:第 5 步接 models store 后与设置面板开关联动 -->
+      <!-- 模型切换:数据源为 settings store,与设置面板「模型接入」开关实时联动 -->
       <ModelSwitcher />
     </div>
 
