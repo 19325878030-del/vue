@@ -51,6 +51,12 @@ export const useChatStore = defineStore('chat', () => {
   const sending = ref(false)
   const modes = ref<Record<UiMode, boolean>>({ rag: false, agent: false, skill: false })
 
+  /**
+   * RAG 模式使用的向量库(后端合法集合名)。在 /rag 界面点卡片选择,
+   * 聊天页不再展示选择器 —— 库的增删选都在那边完成。
+   */
+  const ragCollection = ref('')
+
   const activeModes = computed(() => (Object.keys(modes.value) as UiMode[]).filter((k) => modes.value[k]))
   const hasMessages = computed(() => messages.value.length > 0)
 
@@ -93,6 +99,11 @@ export const useChatStore = defineStore('chat', () => {
       ui.toast('Skill 模式后端暂未实现,本次未发送')
       return false
     }
+    // RAG 必须带上库才能发;库在 /rag 界面的卡片上点选
+    if (mode === 'rag' && !ragCollection.value) {
+      ui.toast('请先到 RAG 界面选择向量库')
+      return false
+    }
 
     messages.value.push({ id: nextId(), role: 'user', content, createdAt: Date.now() })
     const reply: ChatMessage = {
@@ -113,10 +124,8 @@ export const useChatStore = defineStore('chat', () => {
         temperature: 0.7, // 暂无温度控件,与后端默认值保持一致
         model: sp.model,
         provider_id: sp.provider_id,
-        // RAG 要求 knowledge base 名,而当前还没有知识库选择器。
-        // 这里传 null 让后端用明确的 400 拒绝,好过前端瞎猜一个库名。
-        // 接入选择器后改成选中项即可。
-        collection_name: null,
+        // RAG 模式传选中库的合法集合名(slug 后的 name,不是给人看的 display_name)
+        collection_name: mode === 'rag' ? ragCollection.value : null,
       })
       reply.content = res?.reply ?? ''
       // trace 只有 agent 模式有,且可能缺失或不是数组
@@ -131,5 +140,16 @@ export const useChatStore = defineStore('chat', () => {
     return true
   }
 
-  return { messages, sending, modes, activeModes, hasMessages, toggleMode, clearModes, clear, send }
+  return {
+    messages,
+    sending,
+    modes,
+    activeModes,
+    hasMessages,
+    ragCollection,
+    toggleMode,
+    clearModes,
+    clear,
+    send,
+  }
 })

@@ -212,19 +212,6 @@ a { cursor: pointer }
 
 /* ══════════════ 输入区(ChatView / AgiView 共用) ══════════════ */
 .composer-wrap { width: 100%; max-width: 840px; margin: 0 auto; padding: 0 20px 10px; flex-shrink: 0 }
-.mode-chip {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 7px 8px 7px 14px; border-radius: 999px;
-  background: #fff; border: 1px solid var(--border);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, .08);
-  font-size: 13px; font-weight: 600; margin-bottom: 10px;
-}
-.mode-chip .dot { width: 10px; height: 10px; border-radius: 50% }
-.mode-chip button {
-  width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
-  color: var(--muted);
-}
-.mode-chip button:hover { background: var(--surface) }
 
 .composer {
   background: var(--surface); border-radius: 28px;

@@ -60,16 +60,25 @@ export async function api<T = unknown>(
 ): Promise<T> {
   let res: Response
   try {
-    res = await fetch(BASE + path, {
-      method: opts.method ?? 'GET',
-      credentials: 'include',
-      headers: {
-        // pinggy 免费隧道要求此头,否则被警告页拦截;普通后端无影响
-        'X-Pinggy-No-Screen': '1',
-        ...(opts.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
-      },
-      body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
-    })
+        res = await fetch(BASE + path, {
+        method: opts.method ?? 'GET',
+        credentials: 'include',
+        headers: {
+          // pinggy 免费隧道要求此头,否则被警告页拦截;普通后端无影响
+          'X-Pinggy-No-Screen': '1',
+          // FormData 交给浏览器拼 Content-Type(含 boundary),不能手写也不能序列化
+          ...(opts.body !== undefined && !(opts.body instanceof FormData)
+            ? { 'Content-Type': 'application/json' }
+            : {}),
+        },
+        body:
+          opts.body instanceof FormData
+            ? opts.body
+            : opts.body !== undefined
+              ? JSON.stringify(opts.body)
+              : undefined,
+      })
+
   } catch {
     throw new ApiError(0, '网络请求失败:无法连接后端,请检查 API 地址或隧道是否过期')
   }

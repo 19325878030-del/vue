@@ -1,8 +1,11 @@
 <script setup lang="ts">
+import { useRoute, useRouter } from 'vue-router'
 import { useUiStore } from '@/stores/ui'
 import IconSvg from '@/components/common/IconSvg.vue'
 
 const ui = useUiStore()
+const route = useRoute()
+const router = useRouter()
 
 // 原型占位数据:第 3 步接会话列表接口(GET /api/conversations)后删除
 const recentChats = [
@@ -12,6 +15,26 @@ const recentChats = [
   '爬虫代码 Review',
   '答辩 PPT 美化建议',
 ]
+
+// 视图入口(AGENT → Skill → RAG → AGI,顺序与原型一致)
+interface ViewLink {
+  path: string
+  label: string
+  icon: string
+  title: string
+  badge?: boolean
+}
+const viewLinks: ViewLink[] = [
+  { path: '/agent', label: 'AGENT', icon: 'robot', title: 'AGENT 智能体(创建 / 管理)' },
+  { path: '/skill', label: 'Skill', icon: 'bolt', title: 'Skill 技能(添加 / 管理)', badge: true },
+  { path: '/rag', label: 'RAG', icon: 'library', title: 'RAG 知识库(下载知识 / 生成向量库)' },
+  { path: '/agi', label: 'AGI 模式', icon: 'spark', title: 'AGI 模式(实现过程)' },
+]
+
+/** 原型行为:已打开的视图再点一次入口 → 返回对话 */
+function toggleView(path: string) {
+  router.push(route.path === path ? '/chat' : path)
+}
 </script>
 
 <template>
@@ -31,23 +54,18 @@ const recentChats = [
         <span class="nav-ic"><IconSvg name="edit" :size="21" /></span>
         <span>新对话</span>
       </RouterLink>
-      <RouterLink class="nav-item" to="/agent" title="AGENT 智能体(创建 / 管理)" active-class="active">
-        <span class="nav-ic"><IconSvg name="robot" :size="21" /></span>
-        <span>AGENT</span>
-      </RouterLink>
-      <RouterLink class="nav-item" to="/skill" title="Skill 技能(添加 / 管理)" active-class="active">
-        <span class="nav-ic"><IconSvg name="bolt" :size="21" /></span>
-        <span>Skill</span>
-        <span class="nav-badge">新</span>
-      </RouterLink>
-      <RouterLink class="nav-item" to="/rag" title="RAG 知识库(下载知识 / 生成向量库)" active-class="active">
-        <span class="nav-ic"><IconSvg name="library" :size="21" /></span>
-        <span>RAG</span>
-      </RouterLink>
-      <RouterLink class="nav-item" to="/agi" title="AGI 模式(实现过程)" active-class="active">
-        <span class="nav-ic"><IconSvg name="spark" :size="21" /></span>
-        <span>AGI 模式</span>
-      </RouterLink>
+      <button
+        v-for="v in viewLinks"
+        :key="v.path"
+        class="nav-item"
+        :class="{ active: route.path === v.path }"
+        :title="v.title"
+        @click="toggleView(v.path)"
+      >
+        <span class="nav-ic"><IconSvg :name="v.icon" :size="21" /></span>
+        <span>{{ v.label }}</span>
+        <span v-if="v.badge" class="nav-badge">新</span>
+      </button>
 
       <div class="sb-label">最近</div>
       <button

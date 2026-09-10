@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useUiStore } from '@/stores/ui'
 import { useAuthStore } from '@/stores/auth'
 import { useChatStore, type UiMode } from '@/stores/chat'
@@ -8,13 +9,14 @@ import IconSvg from '@/components/common/IconSvg.vue'
 const ui = useUiStore()
 const auth = useAuthStore()
 const chat = useChatStore()
+const router = useRouter()
 
 /* ── 模式组合(原型规则:RAG×AGENT 可并行,Skill 独占) ──
    状态在 chat store 里 —— 模式唯一的用途就是决定这条消息怎么发出去 */
-const MODES: Record<UiMode, { chip: string; sub: string; dot: string }> = {
-  rag: { chip: 'RAG 知识检索', sub: 'RAG · 检索你的知识库,答案有据可查', dot: '#1b6ef3' },
-  agent: { chip: 'AGENT 智能体', sub: 'AGENT · 拆解任务、调用工具、自动执行', dot: '#a142f4' },
-  skill: { chip: 'Skill 技能', sub: 'Skill · 加载预置技能,按流程完成工作', dot: '#f76c05' },
+const MODES: Record<UiMode, { sub: string }> = {
+  rag: { sub: 'RAG · 检索你的知识库,答案有据可查' },
+  agent: { sub: 'AGENT · 拆解任务、调用工具、自动执行' },
+  skill: { sub: 'Skill · 加载预置技能,按流程完成工作' },
 }
 const CHIPS: { mode: UiMode; label: string; icon: string }[] = [
   { mode: 'agent', label: 'Agent 模式', icon: 'robot' },
@@ -24,11 +26,6 @@ const CHIPS: { mode: UiMode; label: string; icon: string }[] = [
 const SUB_DEFAULT = '我是 kby —— 今天想从哪里开始?'
 const SUB_COMBO = 'AGENT × RAG · 智能体自动执行,遇到未知知识优先检索你的知识库'
 
-const dotStyle = computed(() => {
-  const colors = chat.activeModes.map((k) => MODES[k].dot)
-  if (!colors.length) return {}
-  return { background: colors.length > 1 ? `linear-gradient(90deg,${colors.join(',')})` : colors[0] }
-})
 const subtitle = computed(() => {
   const on = chat.activeModes
   return on.includes('agent') && on.includes('rag') ? SUB_COMBO : on.length ? MODES[on[0]].sub : SUB_DEFAULT
@@ -86,6 +83,14 @@ function brief(value: unknown): string {
   }
   return s.length > TRACE_LIMIT ? `${s.slice(0, TRACE_LIMIT)} …` : s
 }
+
+/* ── 模式 chip:首次开 RAG(还没选过向量库)才跳去 /rag 选库,选过直接开聊 ──
+   选库动作在 /rag 界面点卡片完成(选中卡片常驻悬浮高亮) */
+function onChipClick(m: UiMode) {
+  const turningOn = !chat.modes[m]
+  chat.toggleMode(m)
+  if (m === 'rag' && turningOn && !chat.ragCollection) void router.push('/rag')
+}
 </script>
 
 <template>
@@ -121,13 +126,6 @@ function brief(value: unknown): string {
     </div>
 
     <div class="composer-wrap">
-      <!-- 已开启模式胶囊(组合时圆点为渐变) -->
-      <div v-if="chat.activeModes.length" class="mode-chip">
-        <span class="dot" :style="dotStyle"></span>
-        <span>{{ chat.activeModes.map((k) => MODES[k].chip).join(' + ') }}</span>
-        <button title="退出该模式" @click="chat.clearModes()"><IconSvg name="x" :size="14" /></button>
-      </div>
-
       <div class="composer">
         <textarea
           ref="inputEl"
@@ -152,7 +150,7 @@ function brief(value: unknown): string {
               :key="c.mode"
               class="chip"
               :class="{ active: chat.modes[c.mode] }"
-              @click="chat.toggleMode(c.mode)"
+              @click="onChipClick(c.mode)"
             >
               <IconSvg :name="c.icon" :size="16" />
               {{ c.label }}
