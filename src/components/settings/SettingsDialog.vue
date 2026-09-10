@@ -4,6 +4,9 @@ import { useUiStore } from '@/stores/ui'
 import { useAuthStore } from '@/stores/auth'
 import { useSettingsStore } from '@/stores/settings'
 import IconSvg from '@/components/common/IconSvg.vue'
+import { ApiError } from '@/api/http'
+import { addProvider, deleteProvider, listProviders, testProvider, type ApiProvider } from '@/api/settings'
+
 
 const ui = useUiStore()
 const auth = useAuthStore()
@@ -27,6 +30,7 @@ watch(
 // 切到"模型接入"页时保证目录是新的(比如 Ollama 是打开面板之后才启动的)
 watch([() => ui.settingsOpen, tab], ([open, t]) => {
   if (open && t === 'model' && !settings.loaded) void settings.refresh()
+ if (open && t === 'model') void loadProviders() // 打开"模型接入"页时拉已存配置
 })
 
 /** 模型列表为空时的说明:请求失败优先,其次是后端报告的 Ollama 不可用 */
@@ -34,6 +38,85 @@ const modelEmptyHint = computed(() => {
   if (settings.refreshError) return settings.refreshError
   return settings.error ? '本地 Ollama 不可用,启动后重试' : '未检测到可用模型'
 })
+
+  /* ── 添加外部模型(真实接口,配置存登录账号下;key 不进 localStorage) ── */
+const baseUrl = ref('') // → base_url
+const modelName = ref('') // → model(之前缺的就是它)
+const apiKeyInput = ref('') // → api_key
+const providers = ref<ApiProvider[]>([])
+const providerBusy = ref(false)
+
+async function loadProviders() {
+  if (!auth.loggedIn) {
+    providers.value = []
+    return
+  }
+  try {
+    const r = await listProviders()
+    providers.value = Array.isArray(r?.providers) ? r.providers : []
+  } catch {
+    providers.value = [] // 401/网络失败都按"没有配置"处理
+  }
+}
+
+function formOk() {
+  return !!(baseUrl.value && modelName.value && apiKeyInput.value)
+}
+
+async function testConn() {
+  if (!formOk()) {
+    ui.toast('地址、模型名称、API Key 都要填')
+    return
+  }
+  providerBusy.value = true
+  try {
+    const r = await testProvider({
+      base_url: baseUrl.value.trim(),
+      model: modelName.value.trim(),
+      api_key: apiKeyInput.value.trim(),
+    })
+    // 后端约定:失败也是 200,看 data.ok 而不是 code
+    ui.toast(`${r.ok ? '✅' : '❌'} ${r.message || (r.ok ? '连接正常' : '连接失败')}`)
+  } catch (e) {
+    ui.toast(e instanceof ApiError ? e.message : '请求失败')
+  } finally {
+    providerBusy.value = false
+  }
+}
+
+async function saveProvider() {
+  if (!formOk()) {
+    ui.toast('地址、模型名称、API Key 都要填')
+    return
+  }
+  providerBusy.value = true
+  try {
+    await addProvider({
+      base_url: baseUrl.value.trim(),
+      model: modelName.value.trim(),
+      api_key: apiKeyInput.value.trim(),
+    })
+    ui.toast('已保存')
+    baseUrl.value = modelName.value = apiKeyInput.value = '' // key 不留输入框
+    // 双刷新:列表更新 + 顶栏下拉马上出现新模型(目录来自 /api/models)
+    await Promise.all([loadProviders(), settings.refresh()])
+  } catch (e) {
+    ui.toast(e instanceof ApiError ? e.message : '保存失败')
+  } finally {
+    providerBusy.value = false
+  }
+}
+
+async function removeProvider(p: ApiProvider) {
+  if (!window.confirm(`删除「${p.model}」？删除后顶栏下拉同步消失`)) return
+  try {
+    await deleteProvider(p.id)
+    await Promise.all([loadProviders(), settings.refresh()])
+  } catch (e) {
+    ui.toast(e instanceof ApiError ? e.message : '删除失败')
+  }
+}
+
 
 function close() {
   ui.closeSettings()
@@ -118,26 +201,43 @@ function doDelete() {
 
           <!-- 模型接入 -->
           <section class="st-pane" v-show="tab === 'model'">
-            <div class="st-field">
-              <label for="setApiKey">API 密钥</label>
-              <div class="st-key">
-                <input
-                  id="setApiKey"
-                  v-model="settings.apiKey"
-                  :type="keyVisible ? 'text' : 'password'"
-                  placeholder="sk-…"
-                />
-                <button class="icon-btn" title="显示 / 隐藏密钥" @click="keyVisible = !keyVisible">
-                  <IconSvg name="eye" :size="20" />
-                </button>
+            <!-- 未登录:这些接口全部要登录,先明说而不是等 401 -->
+            <div v-if="!auth.loggedIn" class="st-empty">
+              添加外部模型需要先登录(配置保存在你的账号下)。
+              <button class="st-link" @click="goLogin">去登录</button>
+            </div>
+
+            <template v-else>
+              <div class="st-field">
+                <label for="setEndpoint">接入地址 (base_url)</label>
+                <input id="setEndpoint" v-model="baseUrl" type="text" placeholder="https://api.deepseek.com" />
               </div>
-              <p class="st-hint">未接通：仅保存在本机浏览器，不会发送到服务端。</p>
-            </div>
-            <div class="st-field">
-              <label for="setEndpoint">接入端点</label>
-              <input id="setEndpoint" v-model="settings.endpoint" type="text" />
-              <p class="st-hint">未接通：同上，暂时只是个本地草稿。</p>
-            </div>
+              <div class="st-field">
+                <label for="setModel">模型名称 (model)</label>
+                <input id="setModel" v-model="modelName" type="text" placeholder="deepseek-chat" />
+              </div>
+              <div class="st-field">
+                <label for="setApiKey">API 密钥 (api_key)</label>
+                <div class="st-key">
+                  <input id="setApiKey" v-model="apiKeyInput" :type="keyVisible ? 'text' : 'password'" placeholder="sk-…" />
+                  <button class="icon-btn" title="显示 / 隐藏密钥" @click="keyVisible = !keyVisible">
+                    <IconSvg name="eye" :size="20" />
+                  </button>
+                </div>
+                <div class="st-empty-actions">
+                  <button class="st-link" :disabled="providerBusy" @click="testConn">测试连接</button>
+                  <button class="st-link" :disabled="providerBusy" @click="saveProvider">保存</button>
+                </div>
+              </div>
+
+              <div class="st-label2">已保存的外部模型</div>
+              <div v-if="!providers.length" class="st-empty">还没有保存的配置</div>
+              <div v-for="p in providers" :key="p.id" class="st-row">
+                <span><b>{{ p.model }}</b><i>{{ p.base_url }} · {{ p.api_key }}</i></span>
+                <button class="st-link" @click="removeProvider(p)">删除</button>
+              </div>
+            </template>
+
 
             <div class="st-label2">
               可用模型

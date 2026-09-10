@@ -36,3 +36,32 @@ export interface ModelsPayload {
 export function fetchModels() {
   return api<ModelsPayload>('/api/models')
 }
+
+/** 添加/测试外部模型时要提交的表单(name 可不填,后端用 model 顶上) */
+export interface ProviderForm {
+  base_url: string
+  api_key: string
+  model: string
+  name?: string
+}
+
+/** 连通性测试。注意:连不上也是 HTTP 200,成败看 data.ok */
+export function testProvider(form: ProviderForm) {
+  return api<{ ok: boolean; message: string }>('/api/llm/test', { method: 'POST', body: form })
+}
+
+/** 新增一条外部模型配置(存到当前登录账号下) */
+export function addProvider(form: ProviderForm) {
+  return api('/api/llm/providers', { method: 'POST', body: form })
+}
+
+/** 本人已保存的配置列表(api_key 已脱敏,可放心展示) */
+export function listProviders() {
+  return api<{ providers: ApiProvider[] }>('/api/llm/providers')
+}
+
+/** 删除本人的一条配置 */
+export function deleteProvider(id: number) {
+  return api(`/api/llm/providers/${id}`, { method: 'DELETE' })
+}
+
