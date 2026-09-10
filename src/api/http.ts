@@ -32,6 +32,25 @@ function extractMessage(data: unknown): string | null {
 }
 
 /**
+ * 拆信封。后端所有 JSON 接口统一返回 { code, msg, data },code === 0 为成功,
+ * 调用方真正想要的是里面的 data —— 在这里一次性剥掉,免得每个 api/*.ts 各拆一遍。
+ *
+ * 非信封结构(数组、纯字符串、没有 code 的对象)原样透传,兼容非标准响应。
+ */
+function unwrapEnvelope(raw: unknown): { data: unknown; bizError: string | null } {
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    const o = raw as Record<string, unknown>
+    if (typeof o.code === 'number' && 'data' in o) {
+      return {
+        data: o.data,
+        bizError: o.code === 0 ? null : String(o.msg ?? `业务错误(code ${o.code})`),
+      }
+    }
+  }
+  return { data: raw, bizError: null }
+}
+
+/**
  * fetch 封装:Cookie 会话(credentials)、JSON 序列化、错误归一化。
  * 401 时自动弹出登录框(原型:右上角头像 → 登录/注册弹窗)。
  */
@@ -56,18 +75,26 @@ export async function api<T = unknown>(
   }
 
   const text = await res.text()
-  let data: unknown = null
+  let raw: unknown = null
   if (text) {
     try {
-      data = JSON.parse(text)
+      raw = JSON.parse(text)
     } catch {
-      data = text
+      raw = text
     }
   }
 
+  const body = unwrapEnvelope(raw)
+
   if (!res.ok) {
     if (res.status === 401) useUiStore().openAuth()
-    throw new ApiError(res.status, extractMessage(data) ?? `请求失败(HTTP ${res.status})`, data)
+    // 载荷传原始 body:调试时要能看到完整信封而不只是 data
+    throw new ApiError(res.status, extractMessage(raw) ?? `请求失败(HTTP ${res.status})`, raw)
   }
-  return data as T
+  // HTTP 2xx 但业务码非 0。后端目前不会产生这种情况(错误一律带非 2xx 状态码),
+  // 归一化后顺手覆盖,避免以后出现"请求成功却没有数据"的静默失败
+  if (body.bizError) {
+    throw new ApiError(res.status, extractMessage(raw) ?? body.bizError, raw)
+  }
+  return body.data as T
 }

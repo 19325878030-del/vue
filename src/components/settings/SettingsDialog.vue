@@ -2,7 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useUiStore } from '@/stores/ui'
 import { useAuthStore } from '@/stores/auth'
-import { MODEL_CATALOG, useSettingsStore } from '@/stores/settings'
+import { useSettingsStore } from '@/stores/settings'
 import IconSvg from '@/components/common/IconSvg.vue'
 
 const ui = useUiStore()
@@ -23,6 +23,17 @@ watch(
     }
   },
 )
+
+// 切到"模型接入"页时保证目录是新的(比如 Ollama 是打开面板之后才启动的)
+watch([() => ui.settingsOpen, tab], ([open, t]) => {
+  if (open && t === 'model' && !settings.loaded) void settings.refresh()
+})
+
+/** 模型列表为空时的说明:请求失败优先,其次是后端报告的 Ollama 不可用 */
+const modelEmptyHint = computed(() => {
+  if (settings.refreshError) return settings.refreshError
+  return settings.error ? '本地 Ollama 不可用,启动后重试' : '未检测到可用模型'
+})
 
 function close() {
   ui.closeSettings()
@@ -120,24 +131,50 @@ function doDelete() {
                   <IconSvg name="eye" :size="20" />
                 </button>
               </div>
+              <p class="st-hint">未接通：仅保存在本机浏览器，不会发送到服务端。</p>
             </div>
             <div class="st-field">
               <label for="setEndpoint">接入端点</label>
               <input id="setEndpoint" v-model="settings.endpoint" type="text" />
+              <p class="st-hint">未接通：同上，暂时只是个本地草稿。</p>
             </div>
-            <div class="st-label2">可用模型</div>
-            <!-- 开关与顶栏模型下拉实时联动(数据都在 settings store) -->
-            <div v-for="m in MODEL_CATALOG" :key="m.name" class="st-row">
-              <span><b>{{ m.name }}</b><i>{{ m.desc }}</i></span>
-              <button
-                class="switch"
-                :class="{ on: settings.modelOn(m.name) }"
-                role="switch"
-                :aria-checked="settings.modelOn(m.name)"
-                :aria-label="m.name"
-                @click="settings.toggleModel(m.name)"
-              ></button>
+
+            <div class="st-label2">
+              可用模型
+              <button class="st-refresh" title="重新拉取模型列表" @click="settings.refresh()">
+                刷新
+              </button>
             </div>
+
+            <!-- 加载中 / 空目录 / 正常列表三态,与顶栏下拉保持一致 -->
+            <div v-if="settings.loading && !settings.catalog.length" class="st-empty">模型加载中…</div>
+
+            <template v-else-if="!settings.catalog.length">
+              <div class="st-empty">{{ modelEmptyHint }}</div>
+              <div class="st-empty-actions">
+                <button class="st-link" @click="settings.refresh()">重试</button>
+                <button v-if="!auth.loggedIn" class="st-link" @click="goLogin">
+                  登录后接入外部模型
+                </button>
+              </div>
+            </template>
+
+            <template v-else>
+              <!-- 本地 Ollama 挂了但外部模型还在:提示一句,列表照常可用 -->
+              <div v-if="settings.error" class="st-empty">本地模型不可用,启动 Ollama 后刷新</div>
+              <!-- 开关与顶栏模型下拉实时联动(数据都在 settings store) -->
+              <div v-for="m in settings.catalog" :key="m.key" class="st-row">
+                <span><b>{{ m.name }}</b><i>{{ m.desc }}</i></span>
+                <button
+                  class="switch"
+                  :class="{ on: settings.modelOn(m.key) }"
+                  role="switch"
+                  :aria-checked="settings.modelOn(m.key)"
+                  :aria-label="m.name"
+                  @click="settings.toggleModel(m.key)"
+                ></button>
+              </div>
+            </template>
           </section>
         </div>
 
