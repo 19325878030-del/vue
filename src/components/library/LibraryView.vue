@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useUiStore } from '@/stores/ui'
 import { useChatStore } from '@/stores/chat'
 import { useLibraryStore, type LibraryKind, type LibraryItem } from '@/stores/library'
@@ -18,6 +19,7 @@ const props = defineProps<{ kind: LibraryKind }>()
 const ui = useUiStore()
 const chat = useChatStore()
 const library = useLibraryStore()
+const router = useRouter()
 
 const CONFIG: Record<
   LibraryKind,
@@ -86,11 +88,20 @@ function onCardClick(item: LibraryItem, e: MouseEvent) {
   if (editingId.value === item.id) return // 正在就地改名
   if (props.kind === 'rag') {
     chat.ragCollection = item.id // RAG 页点卡片 = 选为对话要检索的库(卡片常驻悬浮高亮)
+    searchEl.value?.blur() // 选完焦点离开搜索框,接着按回车才是"回主界面"
+    return
+  }
+  if (props.kind === 'agent') {
+    // AGENT 页点卡片 = 增删对话启用的工具包(可多选,选中卡片常驻悬浮高亮)
+    chat.agentPackages = chat.agentPackages.includes(item.id)
+      ? chat.agentPackages.filter((p) => p !== item.id)
+      : [...chat.agentPackages, item.id]
+    searchEl.value?.blur()
     return
   }
   openMenu(item, e.currentTarget as HTMLElement)
 }
-/** RAG 卡片右上角的 ⋯:重命名 / 删除的入口(点卡片本体是选库,不再弹菜单) */
+/** RAG / AGENT 卡片右上角的 ⋯:重命名 / 删除的入口(点卡片本体是选库/选工具包,不再弹菜单) */
 function onMoreClick(item: LibraryItem, e: MouseEvent) {
   if (editingId.value === item.id) return
   openMenu(item, e.currentTarget as HTMLElement)
@@ -104,6 +115,13 @@ function onKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
     cancelEdit()
     closeMenu()
+  }
+  // 点卡片选好之后直接按回车 = 回主对话界面,不用再摸鼠标。
+  // 焦点在输入框里时不触发 —— 搜索框的回车交给输入法,改名框的回车是确认改名。
+  if (e.key === 'Enter') {
+    const el = e.target as HTMLElement | null
+    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return
+    if (props.kind === 'rag' || props.kind === 'agent') void router.push('/chat')
   }
 }
 
@@ -148,8 +166,9 @@ function doDelete() {
   const t = menuTarget
   menuTarget = null
   if (!t) return
-  // 删的是当前选中的库时,选中态一并清掉,免得 RAG 对话还往已删的库里查
+  // 删的是当前选中的库/工具包时,选中态一并清掉,免得对话还往已删的库里查/用已删的工具
   if (props.kind === 'rag' && chat.ragCollection === t.id) chat.ragCollection = ''
+  if (props.kind === 'agent') chat.agentPackages = chat.agentPackages.filter((p) => p !== t.id)
   library.remove(props.kind, t.id)
   ui.toast(`已删除「${t.name}」`)
 }
@@ -195,15 +214,27 @@ async function onFolderChange(e: Event) {
 }
 
 
+/* ── 拉工具包列表并校正选中态(RAG/AGENT 两处入口共用) ──
+   选中的包若已不在后端列表里(磁盘上被删/改名),选中态必须清掉:后端对未知包名
+   是"过滤后一个包都不剩"——agent 会静默地一个工具都用不了,不如让用户重选 */
+async function reloadAgent() {
+  await library.loadAgent().catch((e: Error) => ui.toast(e.message))
+  const alive = new Set(library.items.agent.map((i) => i.id))
+  chat.agentPackages = chat.agentPackages.filter((p) => alive.has(p))
+}
+
 /* ── 挂载 / 视图间切换(RAG ↔ AGENT ↔ Skill 复用同一组件实例) ── */
 onMounted(() => {
   // webkitdirectory 是非标准属性,直接写模板 vue-tsc 不认,运行时手动补上
   folderInput.value?.setAttribute('webkitdirectory', '')
   document.addEventListener('click', onDocClick)
   document.addEventListener('keydown', onKeydown)
-  // 注意:这里不能清对话模式 —— 聊天页点 RAG chip 会跳来这里选库,模式要保持开启
+  // 注意:这里不能清对话模式 —— 聊天页点 RAG/AGENT chip 会跳来这里选库/选工具包,模式要保持开启
   if (props.kind === 'rag') {
     void library.loadRag().catch((e: Error) => ui.toast(e.message))
+  }
+  if (props.kind === 'agent') {
+    void reloadAgent()
   }
 
   searchEl.value?.focus()
@@ -223,6 +254,9 @@ watch(
     // 从 /agent、/skill 切过来时 onMounted 不会再跑,这里补拉(store 内有防重)
     if (props.kind === 'rag') {
       void library.loadRag().catch((e: Error) => ui.toast(e.message))
+    }
+    if (props.kind === 'agent') {
+      void reloadAgent()
     }
     await nextTick()
     searchEl.value?.focus()
@@ -246,12 +280,16 @@ watch(
           v-for="item in list"
           :key="item.id"
           class="lib-card"
-          :class="{ sel: kind === 'rag' && item.id === chat.ragCollection }"
+          :class="{
+            sel:
+              (kind === 'rag' && item.id === chat.ragCollection) ||
+              (kind === 'agent' && chat.agentPackages.includes(item.id)),
+          }"
           @click="onCardClick(item, $event)"
         >
-          <!-- RAG 卡片:悬浮才出现的 ⋯,重命名/删除入口 -->
+          <!-- RAG / AGENT 卡片:悬浮才出现的 ⋯,重命名/删除入口(点卡片本体是选库/选工具包) -->
           <button
-            v-if="kind === 'rag'"
+            v-if="kind === 'rag' || kind === 'agent'"
             class="lib-more"
             title="重命名 / 删除"
             aria-label="重命名或删除"

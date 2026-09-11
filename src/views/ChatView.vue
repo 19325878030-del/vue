@@ -84,12 +84,14 @@ function brief(value: unknown): string {
   return s.length > TRACE_LIMIT ? `${s.slice(0, TRACE_LIMIT)} …` : s
 }
 
-/* ── 模式 chip:首次开 RAG(还没选过向量库)才跳去 /rag 选库,选过直接开聊 ──
-   选库动作在 /rag 界面点卡片完成(选中卡片常驻悬浮高亮) */
+/* ── 模式 chip:首次开 RAG/AGENT(还没选过向量库/工具包)才跳去对应界面选,
+   选过直接开聊 —— 选库/选工具包动作都在对应界面点卡片完成(选中卡片常驻悬浮高亮),
+   在那边按回车即可回到本页 ── */
 function onChipClick(m: UiMode) {
   const turningOn = !chat.modes[m]
   chat.toggleMode(m)
   if (m === 'rag' && turningOn && !chat.ragCollection) void router.push('/rag')
+  if (m === 'agent' && turningOn && chat.agentPackages.length === 0) void router.push('/agent')
 }
 </script>
 

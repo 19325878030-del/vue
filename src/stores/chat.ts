@@ -1,5 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
+import router from '@/router'
 import { ApiError } from '@/api/http'
 import { sendChat, type ChatMode, type ChatTraceItem } from '@/api/chat'
 import { useSettingsStore } from './settings'
@@ -57,6 +58,13 @@ export const useChatStore = defineStore('chat', () => {
    */
   const ragCollection = ref('')
 
+  /**
+   * Agent 模式启用的工具包(后端 package 名,可多选)。在 /agent 界面点卡片增删,
+   * 发送时作为 tool_packages 传给后端 —— 后端不传=全部启用,传了就只用这些。
+   * 一个都没选时不能发(见 send),否则后端会静默启用全部,与用户所见不符。
+   */
+  const agentPackages = ref<string[]>([])
+
   const activeModes = computed(() => (Object.keys(modes.value) as UiMode[]).filter((k) => modes.value[k]))
   const hasMessages = computed(() => messages.value.length > 0)
 
@@ -104,6 +112,13 @@ export const useChatStore = defineStore('chat', () => {
       ui.toast('请先到 RAG 界面选择向量库')
       return false
     }
+    // Agent 至少要选中一个工具包才能发(后端不传=全部启用,静默用全部更难排查);
+    // 没选就直接跳去 /agent 界面点卡片选,用户选完回来再发
+    if (mode === 'agent' && agentPackages.value.length === 0) {
+      ui.toast('请先选择工具包')
+      void router.push('/agent')
+      return false
+    }
 
     messages.value.push({ id: nextId(), role: 'user', content, createdAt: Date.now() })
     const reply: ChatMessage = {
@@ -126,6 +141,8 @@ export const useChatStore = defineStore('chat', () => {
         provider_id: sp.provider_id,
         // RAG 模式传选中库的合法集合名(slug 后的 name,不是给人看的 display_name)
         collection_name: mode === 'rag' ? ragCollection.value : null,
+        // Agent 模式传 /agent 界面选中的工具包(可能多个;后端不传=全部)
+        tool_packages: mode === 'agent' ? agentPackages.value : null,
       })
       reply.content = res?.reply ?? ''
       // trace 只有 agent 模式有,且可能缺失或不是数组
@@ -147,6 +164,7 @@ export const useChatStore = defineStore('chat', () => {
     activeModes,
     hasMessages,
     ragCollection,
+    agentPackages,
     toggleMode,
     clearModes,
     clear,

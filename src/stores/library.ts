@@ -5,6 +5,7 @@ import {
   createRagCollection as apiCreate,
   type ApiRagCollection,
 } from '@/api/rag'
+import { fetchAgentTools, type ApiAgentPackage } from '@/api/agent'
 
 /**
  * 资源库状态:RAG 向量库 / AGENT 智能体 / Skill 技能三合一。
@@ -108,6 +109,18 @@ function fromApi(c: ApiRagCollection): LibraryItem {
   }
 }
 
+/** 后端工具包 → 前端卡片:id 用包名(package),对话时传回 tool_packages */
+function fromApiAgent(p: ApiAgentPackage): LibraryItem {
+  return {
+    id: p.package,
+    name: p.display_name || p.package,
+    meta: `${p.tools.length} 个工具 · v${p.version}`,
+    status: '已启用',
+    done: true,
+    icon: '🤖',
+  }
+}
+
 export const useLibraryStore = defineStore('library', () => {
   const items = ref<Record<LibraryKind, LibraryItem[]>>(load())
 
@@ -176,5 +189,13 @@ export const useLibraryStore = defineStore('library', () => {
     items.value.rag = (await fetchRagCollections()).collections.map(fromApi)
   }
 
-  return { items, rename, remove, createDraft, createFromFolder, loadRag }
+  /** 进 AGENT 视图时拉一次工具包列表(manifest 扫描结果),同 RAG:服务器是唯一真相 */
+  let agentLoaded = false
+  async function loadAgent() {
+    if (agentLoaded) return
+    agentLoaded = true
+    items.value.agent = (await fetchAgentTools()).tools.map(fromApiAgent)
+  }
+
+  return { items, rename, remove, createDraft, createFromFolder, loadRag, loadAgent }
 })

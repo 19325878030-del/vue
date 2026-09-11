@@ -36,6 +36,9 @@ export interface ChatParams {
   provider_id?: number | null
   /** 仅 rag 模式需要,且必须非空,否则后端返回 400 */
   collection_name?: string | null
+  /** 仅 agent 模式用:启用的工具包包名列表(来自 /api/agent/tools 的 package 字段);
+   *  不传 / null / 空数组 = 后端启用全部工具包 */
+  tool_packages?: string[] | null
 }
 
 /** 发送一条消息并等待完整回复 */
