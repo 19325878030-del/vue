@@ -3,7 +3,8 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUiStore } from '@/stores/ui'
 import { useAuthStore } from '@/stores/auth'
-import { useChatStore, type UiMode } from '@/stores/chat'
+import { useChatStore, type ChatMessage, type UiMode } from '@/stores/chat'
+import type { ChatTraceItem } from '@/api/chat'
 import IconSvg from '@/components/common/IconSvg.vue'
 
 const ui = useUiStore()
@@ -84,6 +85,51 @@ function brief(value: unknown): string {
   return s.length > TRACE_LIMIT ? `${s.slice(0, TRACE_LIMIT)} …` : s
 }
 
+/* ── 执行过程:RAG 模式的工具调用,并行模式下还混着知识库检索步骤 ── */
+/** 并行模式的知识库检索步骤由后端打 type='rag' 标记 */
+function isRagStep(t: ChatTraceItem): boolean {
+  return t.type === 'rag'
+}
+
+/** 检索步骤的 result 与工具调用不同:后端只说清"查了什么、命中没有、命中的哪个库",
+ *  不返回整段上下文,所以这里压成一句话而不是打印原始 JSON */
+function ragStepText(t: ChatTraceItem): string {
+  const r = (t.result ?? {}) as Record<string, unknown>
+  if (r.error) return `⚠️ ${r.error}`
+  if (!r.found) return '未命中'
+  const n = Array.isArray(r.sources) ? r.sources.length : 0
+  return `命中 ${n} 段${r.collection ? `(${r.collection})` : ''}`
+}
+
+/** 本次请求的全部知识库检索 —— 含预取后没被 Agent 用上的 */
+function retrievals(m: ChatMessage) {
+  return m.knowledge?.retrievals ?? []
+}
+
+/** 预取(请求进来就查了)与按需(Agent 中途发现不懂才补查)各花了多久、命中没有 */
+function retrievalSummary(m: ChatMessage): string {
+  return retrievals(m)
+    .map(
+      (r) =>
+        `${r.phase === 'prefetch' ? '预取' : '按需'}「${r.query}」` +
+        `${r.found ? `命中 ${r.chunks} 段` : '未命中'} ${r.elapsed_ms ?? '?'}ms`,
+    )
+    .join(';')
+}
+
+/** 有知识库步骤时是"执行过程",纯工具调用时保持原文案 */
+function traceSummary(m: ChatMessage): string {
+  const steps = m.trace ?? []
+  return steps.some(isRagStep) || retrievals(m).length
+    ? `执行过程 ${steps.length} 步`
+    : `工具调用 ${steps.length} 次`
+}
+
+/** 预取可能一条都没被 Agent 用上但检索确实发生过,所以 trace 与 knowledge 任一有内容就显示 */
+function showTrace(m: ChatMessage): boolean {
+  return (m.trace?.length ?? 0) > 0 || retrievals(m).length > 0
+}
+
 /* ── 模式 chip:首次开 RAG/AGENT(还没选过向量库/工具包)才跳去对应界面选,
    选过直接开聊 —— 选库/选工具包动作都在对应界面点卡片完成(选中卡片常驻悬浮高亮),
    在那边按回车即可回到本页 ── */
@@ -111,14 +157,28 @@ function onChipClick(m: UiMode) {
             <span v-if="m.pending" class="typing"><i></i><i></i><i></i></span>
             <template v-else-if="m.error">{{ m.error }}</template>
             <template v-else>
-              <!-- Agent 模式的工具调用轨迹;默认折叠,需要时再展开 -->
-              <details v-if="m.trace && m.trace.length" class="trace">
-                <summary>工具调用 {{ m.trace.length }} 次</summary>
+              <!-- Agent 工具调用轨迹 / 并行模式的知识库检索;默认折叠,需要时再展开 -->
+              <details v-if="showTrace(m)" class="trace">
+                <summary>{{ traceSummary(m) }}</summary>
                 <div v-for="(t, i) in m.trace" :key="i" class="trace-item">
-                  <b>{{ t.tool || '未知工具' }}</b>
-                  <pre>{{ brief(t.parameters) }}</pre>
-                  <pre>{{ brief(t.result) }}</pre>
+                  <!-- 知识库检索步骤:结果不打印原始 JSON,只留一句"查了什么、命中没有" -->
+                  <template v-if="isRagStep(t)">
+                    <b class="rag-name">📚 {{ t.tool || '知识库检索' }}</b>
+                    <pre>{{ brief(t.parameters) }}</pre>
+                    <p class="rag-note">{{ ragStepText(t) }}</p>
+                  </template>
+                  <template v-else>
+                    <b>{{ t.tool || '未知工具' }}</b>
+                    <pre>{{ brief(t.parameters) }}</pre>
+                    <pre>{{ brief(t.result) }}</pre>
+                  </template>
                 </div>
+                <!-- 检索概况:预取机制唯一可见的地方 —— 它查了哪些、哪些白查了 -->
+                <p v-if="retrievals(m).length" class="rag-note">
+                  📚 知识库检索 {{ retrievals(m).length }} 次:{{ retrievalSummary(m) }}
+                </p>
+                <!-- 知识库不可用时后端静默降级为纯 Agent,不提示会让人以为检索正常跑过 -->
+                <p v-if="m.knowledge?.error" class="rag-note warn">⚠️ {{ m.knowledge.error }}</p>
               </details>
               <span class="text">{{ m.content }}</span>
             </template>
@@ -237,4 +297,8 @@ function onChipClick(m: UiMode) {
   font-size: 11.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-all;
   max-height: 160px; overflow: auto;
 }
+/* 知识库检索步骤与检索概况 */
+.trace .rag-name { color: var(--blue-deep) }
+.trace .rag-note { margin: 4px 0 0; font-size: 11.5px; line-height: 1.55 }
+.trace .rag-note.warn { color: #b3261e }
 </style>

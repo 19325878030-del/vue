@@ -1,0 +1,23 @@
+{
+  "code": 0,
+  "data": {
+    "knowledge": {
+      "collections": [
+        "rag"
+      ],
+      "retrievals": [
+        {
+          "chunks": 0,
+          "collection": null,
+          "elapsed_ms": 826,
+          "found": false,
+          "phase": "prefetch",
+          "query": "\u4f60\u597d\uff0c\u4ecb\u7ecd\u4e00\u4e0b\u4f60\u81ea\u5df1\uff0c\u987a\u4fbf\u7b97\u4e00\u4e0b 12*8 \u7b49\u4e8e\u591a\u5c11"
+        }
+      ]
+    },
+    "reply": "\u6211\u662f\u667a\u80fd\u52a9\u624b\uff0c\u80fd\u591f\u5e2e\u52a9\u7528\u6237\u56de\u7b54\u95ee\u9898\u3001\u6267\u884c\u4efb\u52a1\u548c\u63d0\u4f9b\u4fe1\u606f\u3002\u6211\u7684\u77e5\u8bc6\u5e93\u5305\u542b\u4e86\u6570\u767e\u4e07\u6761\u6587\u6863\u3001\u89c4\u8303\u548c\u6570\u636e\uff0c\u53ef\u4ee5\u4ece\u672c\u5730\u7684\u77e5\u8bc6\u5e93\u4e2d\u68c0\u7d22\u76f8\u5173\u4fe1\u606f\u3002\n\n\u73b0\u5728\uff0c\u8ba9\u6211\u4eec\u6765\u7b97\u4e00\u4e0b 12 * 8\uff1a\n\n12 + 8 = 20\n\n\u6240\u4ee5\u7b54\u6848\u662f 20\u3002",
+    "trace": []
+  },
+  "msg": "success"
+}

@@ -1,0 +1,1 @@
+{"message":"我不知道，请调用 web_search 工具帮我搜索 2026 年最新的 AI 进展","temperature":0.7,"model":"qwen2.5:3b","provider_id":null,"collection_name":"rag","tool_packages":["calculator","weather","web_search"]}

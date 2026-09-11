@@ -1,0 +1,23 @@
+{
+  "code": 0,
+  "data": {
+    "knowledge": {
+      "collections": [
+        "rag"
+      ],
+      "retrievals": [
+        {
+          "chunks": 0,
+          "collection": null,
+          "elapsed_ms": 575,
+          "found": false,
+          "phase": "prefetch",
+          "query": "RAG \u68c0\u7d22\u589e\u5f3a\u751f\u6210\u7684\u5b9e\u73b0\u7ec6\u8282\u662f\u4ec0\u4e48\uff1f\u5982\u679c\u4f60\u4e0d\u786e\u5b9a\uff0c\u8bf7\u5148\u67e5\u672c\u5730\u77e5\u8bc6\u5e93\u3002"
+        }
+      ]
+    },
+    "reply": "{\n    \"tool\": \"rag_search\",\n    \"parameters\": {\"query\": \"RAG \u68c0\u7d22\u589e\u5f3a\u751f\u6210\u7684\u5b9e\u73b0\u7ec6\u8282\"}",
+    "trace": []
+  },
+  "msg": "success"
+}
